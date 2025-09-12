@@ -1,7 +1,10 @@
 ## Possible solutions
 To start with, the full list of possible wordle solutions needs to be ascertained.
 There are ~14.5k valid guesses, [listed here.](words.txt) <br>
-There is also a shorter list of ~2.3k actual answers, but this list won't be used.
+There is also a shorter list of ~2.3k actual answers, [found here.](validwords.txt) <br>
+While it may seem more efficient to only use the shorter list, both lists will be utilised.
+The shorter list will be used to narrow down the valid answers initially, while the larger list
+can still be used to gather information.
 
 $$
 S = \text{possible solutions}
@@ -136,3 +139,6 @@ def get_information_gain(old_solutions, new_solutions):
     info_gain = math.log2(len(old_solutions)) - math.log2(len(new_solutions))
     return info_gain
 ```
+
+## Second Guess Entropy
+To establish a more useful guess
