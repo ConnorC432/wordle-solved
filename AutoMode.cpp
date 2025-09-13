@@ -13,7 +13,7 @@ AutoMode::AutoMode(Display &display, Feedback &feedback_instance)
       feedback(feedback_instance),
       entropy(feedback) {}
 
-void AutoMode::run(std::vector<std::string> guesses,
+int AutoMode::run(std::vector<std::string> guesses,
                std::vector<std::string> solutions,
                const std::string &answer) {
     std::unordered_map<std::string, uint8_t> guessFeedback;
@@ -21,7 +21,7 @@ void AutoMode::run(std::vector<std::string> guesses,
 
     while (solutions.size() > 1) {
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 3 - guess_count, display);
+            guesses, solutions, 6 - guess_count, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());
@@ -38,7 +38,9 @@ void AutoMode::run(std::vector<std::string> guesses,
 
     if (!solutions.empty()) {
         display.showOutput("Solution found in " + std::to_string(guess_count) + " guesses: " + solutions[0]);
+        return guess_count;
     } else {
         display.showOutput("No solution found.\n");
     }
+    return -1;
 }

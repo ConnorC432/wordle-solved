@@ -30,38 +30,46 @@ void Entropy::precache_log(size_t max_size) {
 // Feedback Count
 std::array<size_t, 243> Entropy::get_feedback_count(
     const std::string &guess,
-    const std::vector<std::string> &solutions
+    const std::vector<std::string> &solutions,
+    const std::vector<size_t> &indices
 ) const {
     std::array<size_t, 243> counts{};
+    counts.fill(0);
 
-    for (const auto &solution : solutions) {
-        uint8_t fb = cache.get_feedback_cached(guess, solution); // encode feedback
-        counts[fb]++;
+    for (size_t idx : indices) {
+        uint8_t db = cache.get_feedback_cached(guess, solutions[idx]);
     }
+
     return counts;
 }
-// TODO Cache log values
 
 // Single-step Entropies
 std::vector<std::pair<std::string, double>> Entropy::get_entropy(
     const std::vector<std::string> &guesses,
-    const std::vector<std::string> &solutions
+    const std::vector<std::string> &solutions,
+    const std::vector<size_t> &indices
 ) const {
     std::vector<std::pair<std::string, double>> results;
     results.reserve(guesses.size());
 
-    for (const auto &guess : guesses) {
-        double entropy = 0.0;
-        size_t total = solutions.size();
-        if (total > 0) {
-            auto counts = get_feedback_count(guess, solutions);
+    size_t total = indices.size();
+    if (total == 0) return results;
 
-            for (size_t count : counts) {
-                if (count == 0) continue;
-                double p = static_cast<double>(count) / total;
-                entropy -= p * std::log2(p);
-            }
+    for (const auto &guess : guesses) {
+        std::array<size_t, 243> counts{};
+        for (size_t idx : indices) {
+            uint8_t fb = cache.get_feedback_cached(guess, solutions[idx]);
+            counts[fb]++;
         }
+
+        double entropy = 0.0;
+        for (size_t count : counts) {
+            if (count == 0) continue;
+            double p = static_cast<double>(count) / total;
+            double logp = (count < log_cache.size()) ? log_cache[count] - std::log2(total) : std::log2(p);
+            entropy -= p * logp;
+        }
+
         results.emplace_back(guess, entropy);
     }
 
@@ -77,21 +85,31 @@ std::vector<std::pair<std::string, double>> Entropy::get_next_entropy(
     std::vector<std::pair<std::string, double>> result;
     result.reserve(entropies.size());
 
+    std::vector<size_t> indices(solutions.size());
+    for (size_t i = 0; i < solutions.size(); ++i) {
+        indices[i] = i;
+    }
+
     for (const auto &[first_guess, _] : entropies) {
         // Partition solutions by feedback pattern
-        std::unordered_map<uint8_t, std::vector<std::string>> partitions;
-        for (const auto &sol : solutions) {
-            uint8_t fb = cache.get_feedback_cached(first_guess, sol);
-            partitions[fb].push_back(sol);
+        std::array<std::vector<size_t>, 243> partitions;
+        for (size_t i = 0; i < solutions.size(); ++i) {
+            partitions[i].reserve(solutions.size() / 243 + 1);
+        }
+
+        for (size_t idx : indices) {
+            uint8_t fb = cache.get_feedback_cached(first_guess, solutions[idx]);
+            partitions[fb].push_back(idx);
         }
 
         std::vector<std::pair<std::string, double>> conditional_entropies;
         conditional_entropies.reserve(guesses.size());
 
-        for (const auto &[fb, subset] : partitions) {
+        for (size_t fb = 0; fb < partitions.size(); ++fb) {
+            const auto &subset = partitions[fb];
             if (subset.empty()) continue;
 
-            auto sub_entropies = get_entropy(guesses, subset);
+            auto sub_entropies = get_entropy(guesses, solutions, subset);
 
             double weight = static_cast<double>(subset.size()) / solutions.size();
             for (size_t i = 0; i < sub_entropies.size(); i++) {
@@ -122,34 +140,34 @@ std::vector<std::pair<std::string, double>> Entropy::get_n_step_entropy(
         const std::string &guess = guesses[i];
         size_t total = solutions.size();
 
-        // 1. Precompute feedbacks once
-        std::vector<uint8_t> feedbacks(solutions.size());
+        // 1. Precompute feedbacks
+        std::vector<uint8_t> feedbacks(total);
         std::array<size_t, 243> counts{};
         counts.fill(0);
 
-        for (size_t j = 0; j < solutions.size(); ++j) {
+        for (size_t j = 0; j < total; ++j) {
             uint8_t fb = cache.get_feedback_cached(guess, solutions[j]);
             feedbacks[j] = fb;
             counts[fb]++;
         }
 
-        // Single-step entropy
+        // 2. Single-step entropy
         double H_current = 0.0;
         for (size_t count : counts) {
             if (count == 0) continue;
             double p = static_cast<double>(count) / total;
-            double logp = (count < log_cache.size()) ? log_cache[count] : std::log2(p);
+            double logp = (count < log_cache.size()) ? log_cache[count] - std::log2(total) : std::log2(p);
             H_current -= p * logp;
         }
 
-        // Weighted max entropy for next step
+        // 3. Weighted max entropy for next step
         double H_next = 0.0;
         if (k > 1) {
             for (size_t fb = 0; fb < counts.size(); ++fb) {
                 size_t count = counts[fb];
                 if (count == 0) continue;
 
-                // collect subset indices instead of copying strings
+                // Collect subset indices
                 std::vector<size_t> subset_indices;
                 subset_indices.reserve(count);
                 for (size_t j = 0; j < feedbacks.size(); ++j)
@@ -158,19 +176,14 @@ std::vector<std::pair<std::string, double>> Entropy::get_n_step_entropy(
 
                 if (subset_indices.empty()) continue;
 
-                // Build subset view (indices only)
-                std::vector<std::string> subset;
-                subset.reserve(subset_indices.size());
-                for (size_t idx : subset_indices)
-                    subset.push_back(solutions[idx]);
-
+                // Compute next-step entropy recursively
                 double max_branch_entropy = 0.0;
                 if (k > 2) {
-                    auto next_entropies = get_n_step_entropy(guesses, subset, k - 1, progress, false);
+                    auto next_entropies = get_n_step_entropy(guesses, solutions, k - 1, progress, false);
                     for (auto &[g, e] : next_entropies)
                         if (e > max_branch_entropy) max_branch_entropy = e;
                 } else {
-                    auto entropies = get_entropy(guesses, subset);
+                    auto entropies = get_entropy(guesses, solutions, subset_indices);
                     for (auto &[g, e] : entropies)
                         if (e > max_branch_entropy) max_branch_entropy = e;
                 }
@@ -180,15 +193,14 @@ std::vector<std::pair<std::string, double>> Entropy::get_n_step_entropy(
             }
         }
 
-        // 4. Store result
         results[i] = {guess, H_current + H_next};
 
-        // 5. Increment progress only at top-level
         if (top_level)
             progress.fetch_add(1, std::memory_order_relaxed);
     };
 
     if (top_level) {
+        // Use a single ThreadPool
         ThreadPool pool(std::thread::hardware_concurrency());
         std::vector<std::future<void>> futures;
         futures.reserve(guesses.size());
@@ -196,7 +208,6 @@ std::vector<std::pair<std::string, double>> Entropy::get_n_step_entropy(
             futures.push_back(pool.enqueue([&, i]() { compute_for_guess(i); }));
         for (auto &f : futures) f.get();
     } else {
-        // sequential recursion
         for (size_t i = 0; i < guesses.size(); ++i)
             compute_for_guess(i);
     }

@@ -8,11 +8,11 @@
 #include <cstdlib>
 #include <vector>
 
-Display::Display() {
-    progress.started = false;
-}
+bool Display::global_silent = false;
 
 void Display::showProgress(const std::string& title, size_t workDone, size_t totalWork) {
+    if (global_silent) return;
+
     // Initialize progress if not started
     if (!progress.started || totalWork != progress.totalWork) {
         progress.totalWork = totalWork;
@@ -30,6 +30,8 @@ void Display::showProgress(const std::string& title, size_t workDone, size_t tot
 }
 
 void Display::displayProgressBar(const std::string& title) const {
+    if (global_silent) return;
+
     using namespace std::chrono;
     const int barWidth = 50;
 
@@ -71,6 +73,8 @@ void Display::displayProgressBar(const std::string& title) const {
 void Display::showGuesses(
     const std::vector<std::pair<std::string, uint8_t>>& guessFeedback,
     const std::string& currentGuess) {
+    if (global_silent) return;
+
     std::cout << "\n";
     for (const auto& [guess, fB] : guessFeedback) {
         if (guess == currentGuess) continue;
@@ -108,10 +112,13 @@ void Display::showGuesses(
 }
 
 void Display::showOutput(const std::string& output) {
+    if (global_silent) return;
     std::cout << output << std::endl;
 }
 
 void Display::clearDisplay() {
+    if (global_silent) return;
+
 #ifdef _WIN32
     std::system("cls");
 #else

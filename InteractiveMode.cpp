@@ -20,7 +20,7 @@ void InteractiveMode::run(std::vector<std::string>  guesses,
 
     while (solutions.size() > 1) {
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 1, display);
+            guesses, solutions, 6, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());
@@ -72,8 +72,11 @@ void InteractiveMode::run(std::vector<std::string>  guesses,
     }
 
     if (!solutions.empty()) {
+        guessFeedback.push_back({solutions[0], 242});
+
+        display.clearDisplay();
         display.showGuesses(guessFeedback);
-        display.showOutput("Solution found in " + std::to_string(guess_count + 1) + " guesses: " + solutions[0]);
+        display.showOutput("\nSolution found in " + std::to_string(guess_count + 1) + " guesses: " + solutions[0]);
     } else {
         display.showOutput("No solution found.\n");
     }

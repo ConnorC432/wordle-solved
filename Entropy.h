@@ -20,13 +20,15 @@ private:
     // Feedback Count
     std::array<size_t, 243> get_feedback_count(
         const std::string &guess,
-        const std::vector<std::string> &solutions
+        const std::vector<std::string> &solutions,
+        const std::vector<size_t> &indices
     ) const;
 
     // Single-step Entropies
     std::vector<std::pair<std::string, double>> get_entropy(
         const std::vector<std::string> &guesses,
-        const std::vector<std::string> &solutions
+        const std::vector<std::string> &solutions,
+        const std::vector<size_t> &indices
     ) const;
 
     // Get Next Step Entropies

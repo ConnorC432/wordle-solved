@@ -20,13 +20,14 @@ private:
     };
 
     ProgressData progress;
+    std::mutex cout_mutex;
+    static bool global_silent;
 
     void displayProgressBar(const std::string& title) const;
 
-    std::mutex cout_mutex;
-
 public:
-    Display();
+    Display() {progress.started = false;}
+    Display(bool silent) {progress.started = false; global_silent = silent;}
 
     // Start or update a progress bar
     void showProgress(const std::string& title, size_t workDone, size_t totalWork);
@@ -40,7 +41,10 @@ public:
 
     void clearDisplay();
 
-    std::mutex& getMutex() {return cout_mutex;}
+    std::mutex& getMutex() {return cout_mutex;};
+
+    static void setSilent(bool silent) {global_silent = silent;}
+    static bool isSilent() {return global_silent;}
 };
 
 

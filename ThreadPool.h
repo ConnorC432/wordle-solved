@@ -60,7 +60,9 @@ public:
         std::future<RetType> res = task->get_future();
         {
             std::unique_lock<std::mutex> lock(queue_mutex);
-            if (stop) throw std::runtime_error("enqueue on stopped ThreadPool");
+            if (stop) {
+                return std::future<RetType>();
+            }
             tasks.push([task]() { (*task)(); });
         }
         cv.notify_one();
