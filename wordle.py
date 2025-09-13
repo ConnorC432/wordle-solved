@@ -1,14 +1,11 @@
-import json
 import math
-import time
 from collections import defaultdict
 from multiprocessing import Pool, cpu_count
-
 from tqdm import tqdm
 
 
-def get_solutions():
-    with open("words.txt") as f:
+def get_solutions(filename):
+    with open(filename) as f:
         return f.read().splitlines()
 
 
@@ -31,83 +28,76 @@ def get_feedback(guess, solution):
     return "".join(pattern)
 
 
+def get_feedback_count(guess, solutions):
+    feedback_count = defaultdict(int)
+
+    for solution in solutions:
+        feedback = get_feedback(guess, solution)
+        feedback_count[feedback] += 1
+
+    return feedback_count
+
+
 def get_entropy(guess, solutions):
-    pattern_count = defaultdict(int)
     total = len(solutions)
     entropy = 0.0
 
-    for solution in solutions:
-        pattern = get_feedback(guess, solution)
-        pattern_count[pattern] += 1
+    feedback_count = get_feedback_count(guess, solutions)
 
-    for count in pattern_count.values():
+    for count in feedback_count.values():
         p = count / total
         entropy -= p * math.log2(p)
 
-    return guess, entropy
+    return entropy
 
 def get_two_step_entropy(guess, solutions, all_solutions):
-    total_solutions = len(all_solutions)
-    total_entropy = 0.0
+    total = len(solutions)
+    first_entropy = get_entropy(guess, solutions)
+    feedback_count = get_feedback_count(guess, solutions)
 
-    # First, precache feedback for all solutions for this guess
-    feedback_map = defaultdict(list)
-    for solution in solutions:
-        feedback = get_feedback(guess, solution)
-        feedback_map[feedback].append(solution)
+    second_entropy = 0.0
 
-    # Compute first-step entropy
-    first_entropy = 0.0
-    pattern_count = {fb: len(sols) for fb, sols in feedback_map.items()}
-    for count in pattern_count.values():
-        p1 = count / len(solutions)
-        first_entropy -= p1 * math.log2(p1)
+    for feedback, count in feedback_count.items():
+        second_solutions = get_new_solutions(solutions, guess, feedback)
 
-    # Compute second-step entropy
-    for feedback, filtered_solutions in feedback_map.items():
-        p = len(filtered_solutions) / total_solutions
+        best_entropy = 0.0
+        for solution in all_solutions:
+            entropy = get_entropy(solution, second_solutions)
+            if entropy > best_entropy:
+                best_entropy = entropy
 
-        # Second-step entropy: best next guess for this branch
-        second_entropy = 0.0
-        for second_guess in all_solutions:
-            _, entropy = get_entropy(second_guess, filtered_solutions)
-            if entropy > second_entropy:
-                second_entropy = entropy
+        p = count / total
+        second_entropy += p * best_entropy
 
-        total_entropy += p * (first_entropy + second_entropy)
+    total_entropy = first_entropy + second_entropy
 
-    return guess, total_entropy
+    return total_entropy
 
+def get_n_step_entropy(guess, solutions, all_solutions, k=6):
+    if len(solutions) == 1 or k == 0:
+        return 0.0
 
-def worker(args):
-    return get_entropy(*args)
+    total = len(solutions)
+    first_entropy = get_entropy(guess, solutions)
+    feedback_count = get_feedback_count(guess, solutions)
 
-def get_guess(solutions, all_solutions):
-    tasks = [(guess, solutions) for guess in all_solutions]
-    results = []
+    second_entropy = 0.0
 
-    with Pool(cpu_count()) as pool:
-        for result in tqdm(pool.imap_unordered(worker, tasks),
-                           total=len(tasks)):
-            results.append(result)
+    for feedback, count in feedback_count.items():
+        second_solutions = get_new_solutions(solutions, guess, feedback)
 
-    return max(results, key=lambda x: x[1])
+        best_entropy = 0.0
+        for solution in all_solutions:
+            entropy = get_n_step_entropy(solution, second_solutions, all_solutions, k - 1)
+            if entropy > best_entropy:
+                best_entropy = entropy
 
+        p = count / total
+        second_entropy += p * best_entropy
 
-def two_step_worker(args):
-    return get_two_step_entropy(*args)
+    total_entropy = first_entropy + second_entropy
 
-def get_two_step_guess(solutions, all_solutions):
-    tasks = [(guess, solutions, all_solutions) for guess in all_solutions]
-    results = []
-
-    with Pool(cpu_count()) as pool:
-        for result in tqdm(pool.imap_unordered(two_step_worker, tasks),
-                           total=len(tasks)):
-
-            results.append(result)
-
-    return max(results, key=lambda x: x[1])
+    return total_entropy
 
 
 def get_new_solutions(solutions=None, guess=None, feedback=None):
@@ -117,8 +107,6 @@ def get_new_solutions(solutions=None, guess=None, feedback=None):
 
 def get_information_gain(old_solutions, new_solutions):
     info_gain = math.log2(len(old_solutions)) - math.log2(len(new_solutions))
-    print(f"Removed: {len(old_solutions) - len(new_solutions)} | "
-          f"Information Gain: {info_gain} bits")
     return info_gain
 
 
@@ -138,15 +126,37 @@ def colour_string(word, feedback):
     return string
 
 
+def n_step_worker(args):
+    guess, solutions, all_solutions, guesses_left = args
+    return get_n_step_entropy(guess, solutions, all_solutions, guesses_left)
+
+def get_n_step_guess(solutions, all_solutions, guesses_left):
+    tasks = [(guess, solutions, all_solutions, guesses_left) for guess in all_solutions]
+    results = []
+
+    with Pool(cpu_count()) as pool:
+        for result in tqdm(pool.imap_unordered(n_step_worker, tasks),
+                           total=len(tasks)):
+
+            results.append(result)
+
+    best_index = results.index(max(results))
+    best_guess = all_solutions[best_index]
+    best_entropy = results[best_index]
+
+    return best_guess, best_entropy
+
+
 if __name__ == "__main__":
     solved = False
     print("Wordle Solver")
-    all_solutions = get_solutions()
-    solutions = all_solutions
+    all_solutions = get_solutions("guesses.txt")
+    solutions = get_solutions("answers.txt")
     guesses = []
+    guesses_left = 6
 
     while len(solutions) > 1:
-        best_guess, best_entropy = get_two_step_guess(solutions, all_solutions)
+        best_guess, best_entropy = get_n_step_guess(solutions, all_solutions, guesses_left)
         print(f"Guess: \033[1m{best_guess.upper()}\033[0m | Expected Entropy: {best_entropy:.2f} bits")
 
         feedback = input("Feedback (\033[1;42;30m G \033[0m|\033[1;43;30m Y \033[0m|\033[1;100;97m B \033[0m, or \033[1;100;97m N \033[0m for an invalid guess): ").upper().strip()
@@ -161,8 +171,9 @@ if __name__ == "__main__":
         print(f"\n {guess} \n")
 
         new_solutions = get_new_solutions(solutions, best_guess, feedback)
-        get_information_gain(solutions, new_solutions)
+        print(f"Information gain: {get_information_gain(solutions, new_solutions)} Bits")
         solutions = new_solutions
+        guesses_left -= 1
 
     print(f"Solution found in {len(guesses) + 1} guesses: {solutions[0].upper()}")
     print("\n")
