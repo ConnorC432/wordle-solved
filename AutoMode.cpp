@@ -21,7 +21,7 @@ int AutoMode::run(std::vector<std::string> guesses,
 
     while (solutions.size() > 1) {
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 6 - guess_count, display);
+            guesses, solutions, 2 - guess_count, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());

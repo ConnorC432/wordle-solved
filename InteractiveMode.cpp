@@ -20,7 +20,7 @@ void InteractiveMode::run(std::vector<std::string>  guesses,
 
     while (solutions.size() > 1) {
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 6, display);
+            guesses, solutions, 2, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());
