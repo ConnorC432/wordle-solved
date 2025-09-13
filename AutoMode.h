@@ -19,7 +19,7 @@ private:
 public:
     AutoMode(Display &display, Feedback &feedback_instance);
 
-    void run(std::vector<std::string> all_solutions,
+    int run(std::vector<std::string> all_solutions,
              std::vector<std::string> solutions,
              const std::string &answer);
 };
