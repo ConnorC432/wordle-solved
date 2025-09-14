@@ -19,13 +19,22 @@ Entropy::Entropy(const Feedback &fbCache) : cache(fbCache) {}
 // Logarithm Cache
 std::vector<double> Entropy::log_cache;
 
-void Entropy::precache_log(size_t max_size) {
+void Entropy::precache_log(size_t max_size,
+                    Display& display) {
     log_cache.resize(max_size + 1);
+
+    // Start progress
     for (size_t i = 1; i <= max_size; ++i) {
         double p = static_cast<double>(i) / max_size;
         log_cache[i] = std::log2(p);
+
+        // Update progress every so often to avoid excessive output
+        if (i % 100 == 0 || i == max_size) {  // adjust 100 as needed
+            display.showProgress("Caching log2", i, max_size);
+        }
     }
 }
+
 
 // Feedback Count
 std::array<size_t, 243> Entropy::get_feedback_count(
@@ -221,6 +230,10 @@ std::pair<std::string, double> Entropy::get_best_guess(
     int k,
     Display &display
 ) const {
+    if (std::find(guesses.begin(), guesses.end(), "slate") != guesses.end()) {
+        return {"slate", 0.0};
+    }
+
     display.showProgress("Calculating Best Guess", 0, guesses.size());
     std::atomic<size_t> progress(0);
     bool done = false;

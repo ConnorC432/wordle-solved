@@ -22,7 +22,8 @@ public:
     InteractiveMode(Display &display, Feedback &feedback_instance);
 
     void run(std::vector<std::string> all_solutions,
-             std::vector<std::string> solutions);
+             std::vector<std::string> solutions,
+             int steps);
 };
 
 

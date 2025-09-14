@@ -14,48 +14,118 @@
 #include "words.h"
 
 
-int main(int argc, char *argv[]) {
-    Display display;
-    Feedback feedback(display);
+struct Options {
+    int k = 1;
+    bool fast = false;
     bool silent = false;
+    std::string answer;
+};
 
-    for (int i = 2; i < argc; i++) {
+Options parse_args(int argc, char *argv[], Display &display) {
+    Options opts;
+
+    // First non "-" arg is treated as the answer
+    if (argc > 1 && argv[1][0] != '-') {
+        opts.answer = argv[1];
+    }
+
+    for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "--silent") {
+
+        if (arg == "-f") {
+            opts.fast = true;
+        }
+        else if (arg == "-s") {
             Display::setSilent(true);
-            silent = true;
+            opts.silent = true;
+        }
+        else if (arg == "-k") {
+            if (i + 1 < argc) {
+                int parsed_k = std::stoi(argv[++i]);
+                if (parsed_k >= 1 && parsed_k <= 6) {
+                    opts.k = parsed_k;
+                } else {
+                    display.showOutput("Warning: -k must be between 1 and 6. Using the default value of 1.\n");
+                }
+            } else {
+                display.showOutput("Error: -k flag requires a number.\n");
+                exit(1);
+            }
+        }
+
+        else if (arg.size() > 2 && arg[0] == '-') {
+            for (size_t j = 1; j < arg.size(); j++) {
+                char flag = arg[j];
+                if (flag == 'f') {
+                    opts.fast = true;
+                }
+                else if (flag == 's') {
+                    Display::setSilent(true);
+                    opts.silent = true;
+                }
+                else if (flag == 'k') {
+                    if (i + 1 < argc) {
+                        int parsed_k = std::stoi(argv[++i]);
+                        if (parsed_k >= 1 && parsed_k <= 6) {
+                            opts.k = parsed_k;
+                        } else {
+                            display.showOutput("Warning: -k must be between 1 and 6. Using default value 1.\n");
+                        }
+                    } else {
+                        display.showOutput("Error: -k flag requires a number.\n");
+                        exit(1);
+                    }
+                }
+                else {
+                    display.showOutput(std::string("Unknown flag: -") + flag + "\n");
+                }
+            }
         }
     }
 
-    std::vector<std::string> all_solutions = get_all_solutions();
-    std::vector<std::string> valid_solutions = get_valid_solutions();
+    return opts;
+}
 
-    feedback.precache_feedback(all_solutions);
-    Entropy::precache_log(all_solutions.size());
+int main(int argc, char *argv[]) {
+    Display display;
+    Feedback feedback(display);
 
-    if (argc > 1) {
-        std::string answer = argv[1];
+    Options opts = parse_args(argc, argv, display);
 
+    std::vector<std::string> guesses;
+    if (opts.fast) {
+        guesses = get_valid_solutions();
+    } else {
+        guesses = get_all_solutions();
+    }
+
+    std::vector<std::string> answers = get_valid_solutions();
+
+    feedback.precache_feedback(guesses);
+    Entropy::precache_log(guesses.size(), display);
+
+    if (!opts.answer.empty()) {
+        std::string answer = opts.answer;
         for (char &c : answer) c = tolower(c);
 
-        if (std::find(valid_solutions.begin(), valid_solutions.end(), answer) == valid_solutions.end()) {
+        if (std::find(answers.begin(), answers.end(), answer) == answers.end()) {
             display.showOutput("Error: provided answer is not in solution list.\n");
             return 1;
         }
 
         AutoMode automode(display, feedback);
-        int guesses = automode.run(all_solutions, valid_solutions, answer);
+        int guess_count = automode.run(guesses, answers, opts.k, answer);
 
-        if (guesses == -1) {
+        if (guess_count == -1) {
             return 1;
         }
 
-        if (silent) {
-            std::cout << guesses << std::endl;
+        if (opts.silent) {
+            std::cout << guess_count << std::endl;
         }
     } else {
         display.showOutput("Interactive Mode Starting");
         InteractiveMode interactivemode(display, feedback);
-        interactivemode.run(all_solutions, valid_solutions);
+        interactivemode.run(guesses, answers, opts.k);
     }
 }
