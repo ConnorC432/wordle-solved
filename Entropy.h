@@ -43,7 +43,8 @@ public:
     Entropy(const Feedback &fbCache);
 
     static std::vector<double> log_cache;
-    static void precache_log(size_t max_size);
+    static void precache_log(size_t max_size,
+                        Display &display);
 
     // N-step entropy
     std::vector<std::pair<std::string, double>> get_n_step_entropy(

@@ -14,20 +14,26 @@ InteractiveMode::InteractiveMode(Display &display, Feedback &feedback_instance)
       entropy(feedback) {}
 
 void InteractiveMode::run(std::vector<std::string>  guesses,
-                      std::vector<std::string>  solutions) {
+                      std::vector<std::string>  solutions,
+                      int steps) {
     std::vector<std::pair<std::string, uint8_t>> guessFeedback;
-    size_t guess_count = 0;
+    size_t guess_count = 1;
 
     while (solutions.size() > 1) {
+        int k = steps;
+        if (7 - guess_count < steps) {
+            k = 7 - guess_count;
+        }
+
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 2, display);
+            guesses, solutions, k, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());
 
         display.clearDisplay();
         display.showGuesses(guessFeedback, best_guess);
-        display.showOutput("Next Guess: " + best_guess + " | Expected Entropy: " + std::to_string(best_entropy));
+        display.showOutput("Next Guess: " + best_guess + " | Expected Entropy (over " + std::to_string(k) + " steps): " + std::to_string(best_entropy));
 
         std::string fb_input;
         while (true) {
@@ -76,7 +82,7 @@ void InteractiveMode::run(std::vector<std::string>  guesses,
 
         display.clearDisplay();
         display.showGuesses(guessFeedback);
-        display.showOutput("\nSolution found in " + std::to_string(guess_count + 1) + " guesses: " + solutions[0]);
+        display.showOutput("\nSolution found in " + std::to_string(guess_count) + " guesses: " + solutions[0]);
     } else {
         display.showOutput("No solution found.\n");
     }

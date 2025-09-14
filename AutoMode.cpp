@@ -15,18 +15,24 @@ AutoMode::AutoMode(Display &display, Feedback &feedback_instance)
 
 int AutoMode::run(std::vector<std::string> guesses,
                std::vector<std::string> solutions,
+               int steps,
                const std::string &answer) {
     std::unordered_map<std::string, uint8_t> guessFeedback;
-    size_t guess_count = 0;
+    size_t guess_count = 1;
 
     while (solutions.size() > 1) {
+        int k = steps;
+        if (7 - guess_count < steps) {
+            k = 7 - guess_count;
+        }
+
         auto [best_guess, best_entropy] = entropy.get_best_guess(
-            guesses, solutions, 2 - guess_count, display);
+            guesses, solutions, k, display);
 
         guesses.erase(std::remove(guesses.begin(), guesses.end(), best_guess),
                             guesses.end());
 
-        display.showOutput("Next Guess: " + best_guess + " | Expected Entropy: " + std::to_string(best_entropy));
+        display.showOutput("Next Guess: " + best_guess + " | Expected Entropy (over " + std::to_string(k) + " steps): " + std::to_string(best_entropy));
 
         // Get feedback for actual answer
         uint8_t fb_encoded = feedback.get_feedback(best_guess, answer);

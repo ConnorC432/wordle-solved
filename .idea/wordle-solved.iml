@@ -2,13 +2,18 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="FacetManager">
     <facet type="Python" name="Python facet">
-      <configuration sdkName="Python 3.13" />
+      <configuration sdkName="Python 3.13 virtualenv at ~/Git/wordle-solved/.venv" />
     </facet>
   </component>
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/.venv" />
+    </content>
     <orderEntry type="jdk" jdkName="Python 3.13" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Python 3.13 interpreter library" level="application" />
+    <orderEntry type="library" name="Python 3.13 virtualenv at ~/Git/wordle-solved/.venv interpreter library" level="application" />
+  </component>
+  <component name="PackageRequirementsSettings">
+    <option name="removeUnused" value="true" />
   </component>
 </module>

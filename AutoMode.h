@@ -21,6 +21,7 @@ public:
 
     int run(std::vector<std::string> all_solutions,
              std::vector<std::string> solutions,
+             int steps,
              const std::string &answer);
 };
 
