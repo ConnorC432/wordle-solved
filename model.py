@@ -9,7 +9,7 @@ import argparse
 from torch.utils.data import Dataset, DataLoader
 
 
-parser = argparse.ArgumentParser(description="Train Wordle model and play the game.")
+parser = argparse.ArgumentParser()
 parser.add_argument('-a', '--answer', type=str, help="The correct 5-letter Wordle answer")
 parser.add_argument('-e', '--epochs', type=int, default=30, help="Number of training epochs (default=30)")
 parser.add_argument('-b', '--batch-size', type=int, default=64, help="Batch size (default=64)")
@@ -26,7 +26,7 @@ batch_size = args.batch_size
 save_file = args.save
 load_file = args.load
 
-# ------------------- Dataset -------------------
+### Dataset
 class WordGuessDataset(Dataset):
     def __init__(self, words, char_to_idx):
         self.words = words
@@ -43,7 +43,7 @@ class WordGuessDataset(Dataset):
         return torch.tensor(self.data[idx], dtype=torch.long), torch.tensor(self.data[idx], dtype=torch.long)
 
 
-# ------------------- Model -------------------
+### Model
 class WordGuessModel(nn.Module):
     def __init__(self, vocab_size, hidden_dim):
         super().__init__()
@@ -58,7 +58,7 @@ class WordGuessModel(nn.Module):
         return logits
 
 
-# ------------------- Helper -------------------
+### Helper
 ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 
 def build_vocab(words):
@@ -66,7 +66,7 @@ def build_vocab(words):
     return char_to_idx
 
 
-# ------------------- Wordle Game -------------------
+### Wordle Game Simulation
 def get_feedback(guess, target):
     feedback = ['_'] * 5
     for i, c in enumerate(guess):
@@ -118,10 +118,10 @@ class WordleGame:
             feedback = get_feedback(guess, target_word)
             candidates = filter_candidates(candidates, guess, feedback)
             if not candidates:
-                return guesses  # fail-safe
+                return guesses
 
 
-# ------------------- Main -------------------
+### Main
 if __name__ == "__main__":
     char_to_idx = build_vocab(WORDS)
 
