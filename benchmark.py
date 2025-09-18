@@ -10,29 +10,30 @@ env = os.environ.copy()
 valid_answers = "answers.txt"
 program = os.path.abspath("./cmake-build-release-docker/bin/wordle_solved")
 
-args = {
-    "1 Step": ["-sk", "1"],
-    "Fast 1 Step": ["-sfk", "1"],
-    "2 Step": ["-sk", "2"],
-    "Fast 2 Step": ["-sfk", "2"]
+programs = {
+    "C++ 1 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "1"],
+    "C++ Fast 1 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sfk", "1"],
+    "C++ 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "2"],
+    "C++ Fast 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sfk", "2"],
+    "Python 1 Step": lambda word: ["./.venv/bin/python", "wordle.py", "-k", "1", "-a", word],
+    "Python 2 Step": lambda word: ["./.venv/bin/python", "wordle.py", "-k", "2", "-a", word],
+    "PyTorch": lambda word: ["./.venv/bin/python", "model.py", "-l", "model", "-a", word],
 }
 
 with open(valid_answers, "r") as f:
     words = [line.strip() for line in f if line.strip()]
 
-results = {label: {} for label in args}
+results = {label: {} for label in programs}
 
 ### Run Program
-for label, arg in args.items():
-    print(f"\nBenchmarking with args: {arg}\n")
-
+for label, func in programs.items():
+    print(f"\nBenchmarking: {label}\n")
     for word in words:
+        cmd = func(word)
         start_time = time.perf_counter()
 
         try:
-            output = subprocess.check_output(
-                [program, word] + arg
-            ).strip()
+            output = subprocess.check_output(cmd).decode().strip()
         except subprocess.CalledProcessError as e:
             print(f"Subprocess error: {e}")
             continue
@@ -66,60 +67,49 @@ with open("benchmark/results.json", "w") as f:
 
 ### Process Data
 plt.style.use(catppuccin.PALETTE.macchiato.identifier)
-plt.tight_layout()
-groups = ["1 Step", "2 Step"]
-slow_labels = ["1 Step", "2 Step"]
-fast_labels = ["Fast 1 Step", "Fast 2 Step"]
 
-slow_avg_guesses = [results[label]["Average"]["guesses"] for label in slow_labels]
-fast_avg_guesses = [results[label]["Average"]["guesses"] for label in fast_labels]
+# Extract labels and average values dynamically
+labels = list(results.keys())
+valid_words = {w: d for w, d in word.items() if w != "Average"}
+if valid_words:
+    avg_guesses = sum(d["guesses"] for d in valid_words.values()) / len(valid_words)
+    avg_time = sum(d["time"] for d in valid_words.values()) / len(valid_words)
+    results[label]["Average"] = {"guesses": avg_guesses, "time": avg_time}
+else:
+    results[label]["Average"] = {"guesses": 0, "time": 0}
 
-slow_avg_times = [results[label]["Average"]["time"] for label in slow_labels]
-fast_avg_times = [results[label]["Average"]["time"] for label in fast_labels]
+x = np.arange(len(labels))
+width = 0.6
 
-x = np.arange(len(groups))
-width = 0.25
-
-## Average Guesses
-# Plot bars
+# Average Guesses
 fig, ax = plt.subplots(constrained_layout=True)
-bars_slow = ax.bar(x - width/2, slow_avg_guesses, width, label="~14.8k Guess Pool")
-bars_fast = ax.bar(x + width/2, fast_avg_guesses, width, label="~2.3k Guess Pool")
-ax.set_ylim(0, max(slow_avg_guesses + fast_avg_guesses) * 1.10)
+bars = ax.bar(x, avg_guesses, width, color='skyblue')
+ax.set_ylabel("Average Number of Guesses")
+ax.set_title("Average Number of Guesses per Program")
+ax.set_xticks(x)
+ax.set_xticklabels(labels, rotation=45, ha='right')
+ax.set_ylim(0, max(avg_guesses) * 1.10)
 
 # Add value labels on top of bars
-for bar in bars_slow + bars_fast:
+for bar in bars:
     yval = bar.get_height()
-    ax.text(bar.get_x() + bar.get_width()/2, yval * 1.005, f"{yval:.2f}", ha='center', va='bottom')
-
-# Labels and title
-ax.set_xlabel("Number of Steps ($k$)")
-ax.set_ylabel("Average Number of Guesses")
-ax.set_title("Average Number of Guesses per Number of Steps")
-ax.set_xticks(x)
-ax.set_xticklabels(groups)
-ax.legend()
+    ax.text(bar.get_x() + bar.get_width()/2, yval * 1.005, f"{yval:.2f}",
+            ha='center', va='bottom')
 
 plt.savefig("benchmark/average-guesses.png", dpi=300)
 
-## Average Time
-# Plot bars
+# Average Time
 fig, ax = plt.subplots(constrained_layout=True)
-bars_slow = ax.bar(x - width/2, slow_avg_times, width, label="~14.8k Guess Pool")
-bars_fast = ax.bar(x + width/2, fast_avg_times, width, label="~2.3k Guess Pool")
-ax.set_ylim(0, max(slow_avg_times + fast_avg_times) * 1.10)
-
-# Add value labels on top of bars
-for bar in bars_slow + bars_fast:
-    yval = bar.get_height()
-    ax.text(bar.get_x() + bar.get_width()/2, yval * 1.005, f"{yval:.2f}", ha='center', va='bottom')
-
-# Labels and title
-ax.set_xlabel("Number of Steps ($k$)")
+bars = ax.bar(x, avg_times, width, color='orange')
 ax.set_ylabel("Average Calculation Time (s)")
-ax.set_title("Average Calculation Time per Number of Steps")
+ax.set_title("Average Calculation Time per Program")
 ax.set_xticks(x)
-ax.set_xticklabels(groups)
-ax.legend()
+ax.set_xticklabels(labels, rotation=45, ha='right')
+ax.set_ylim(0, max(avg_times) * 1.10)
+
+for bar in bars:
+    yval = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2, yval * 1.005, f"{yval:.2f}",
+            ha='center', va='bottom')
 
 plt.savefig("benchmark/average-time.png", dpi=300)

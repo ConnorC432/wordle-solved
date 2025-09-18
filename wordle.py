@@ -1,7 +1,17 @@
 import math
 from collections import defaultdict
 from multiprocessing import Pool, cpu_count
-from tqdm import tqdm
+import argparse
+# from tqdm import tqdm
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-a', '--answers', type=str, default=None, help="Correct word")
+parser.add_argument('-k', '--k', type=int, default=None, help="K Steps")
+
+args = parser.parse_args()
+word = args.answers
+k = args.k
 
 
 def get_solutions(filename):
@@ -135,9 +145,7 @@ def get_n_step_guess(solutions, all_solutions, guesses_left):
     results = []
 
     with Pool(cpu_count()) as pool:
-        for result in tqdm(pool.imap_unordered(n_step_worker, tasks),
-                           total=len(tasks)):
-
+        for result in pool.imap_unordered(n_step_worker, tasks):
             results.append(result)
 
     best_index = results.index(max(results))
@@ -147,36 +155,39 @@ def get_n_step_guess(solutions, all_solutions, guesses_left):
     return best_guess, best_entropy
 
 
+## Todo: change to auto mode interaction, benchmark against c++
 if __name__ == "__main__":
     solved = False
-    print("Wordle Solver")
     all_solutions = get_solutions("guesses.txt")
     solutions = get_solutions("answers.txt")
-    guesses = []
-    guesses_left = 6
+    guesses = 0
 
     while len(solutions) > 1:
-        best_guess, best_entropy = get_n_step_guess(solutions, all_solutions, guesses_left)
-        print(f"Guess: \033[1m{best_guess.upper()}\033[0m | Expected Entropy: {best_entropy:.2f} bits")
+        best_guess, best_entropy = get_n_step_guess(solutions, all_solutions, k)
+        # print(f"Guess: \033[1m{best_guess.upper()}\033[0m | Expected Entropy: {best_entropy:.2f} bits")
 
-        feedback = input("Feedback (\033[1;42;30m G \033[0m|\033[1;43;30m Y \033[0m|\033[1;100;97m B \033[0m, or \033[1;100;97m N \033[0m for an invalid guess): ").upper().strip()
+        # feedback = input("Feedback (\033[1;42;30m G \033[0m|\033[1;43;30m Y \033[0m|\033[1;100;97m B \033[0m, or \033[1;100;97m N \033[0m for an invalid guess): ").upper().strip()
+        feedback = get_feedback(best_guess, word).upper()
 
         # Remove invalid guesses
-        if "N" in feedback:
-            all_solutions = [s for s in all_solutions if s != best_guess]
-            continue
-
-        guess = colour_string(best_guess, feedback)
-        guesses.append(guess)
-        print(f"\n {guess} \n")
+        # if "N" in feedback:
+        #     all_solutions = [s for s in all_solutions if s != best_guess]
+        #     continue
+        #
+        # guess = colour_string(best_guess, feedback)
+        # guesses.append(guess)
+        # print(f"\n {guess} \n")
 
         new_solutions = get_new_solutions(solutions, best_guess, feedback)
-        print(f"Information gain: {get_information_gain(solutions, new_solutions)} Bits")
+        # print(f"Information gain: {get_information_gain(solutions, new_solutions)} Bits")
         solutions = new_solutions
-        guesses_left -= 1
+        # guesses_left -= 1
+        guesses += 1
 
-    print(f"Solution found in {len(guesses) + 1} guesses: {solutions[0].upper()}")
-    print("\n")
-    for guess in guesses:
-        print(f" {guess} ")
-    print(f" {colour_string(solutions[0].upper(), "GGGGG")} ")
+    # print(f"Solution found in {len(guesses) + 1} guesses: {solutions[0].upper()}")
+    # print("\n")
+    # for guess in guesses:
+    #     print(f" {guess} ")
+    # print(f" {colour_string(solutions[0].upper(), "GGGGG")} ")
+
+    print(guesses)
