@@ -1,4 +1,5 @@
 tqdm~=4.67.1
-numpy~=2.3.2
+numpy~=2.2.6
 matplotlib~=3.10.6
 catppuccin~=2.5.0
+torch~=2.8.0
