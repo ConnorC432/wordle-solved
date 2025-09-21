@@ -23,18 +23,15 @@ void Entropy::precache_log(size_t max_size,
                     Display& display) {
     log_cache.resize(max_size + 1);
 
-    // Start progress
     for (size_t i = 1; i <= max_size; ++i) {
         double p = static_cast<double>(i) / max_size;
         log_cache[i] = std::log2(p);
 
-        // Update progress every so often to avoid excessive output
-        if (i % 100 == 0 || i == max_size) {  // adjust 100 as needed
+        if (i % 100 == 0 || i == max_size) {
             display.showProgress("Caching log2", i, max_size);
         }
     }
 }
-
 
 // Feedback Count
 std::array<size_t, 243> Entropy::get_feedback_count(

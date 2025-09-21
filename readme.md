@@ -246,3 +246,196 @@ def get_n_step_entropy(guess, solutions, all_solutions, k=6):
 ```
 
 ## Optimisation
+### Getting Feedback
+When the best guess is being determined, the code determines the feedback pattern
+for all possible answers, for all possible guesses. For the first step, we have a list
+of ~14.5k guesses and ~2.3k answers.
+
+$$
+\text{guesses} \cdot \text{answers} = 14,855 \cdot 2,315 = 34,389,325
+$$
+
+at ~34.3 million possible guess and answer combinations, the feedback determination
+needs to be as fast as possible. <br>
+To start with, the feedback strings, such as "GYBYG", can be replaced with a Base 3 integer.
+- Gray = 0
+- Yellow = 1
+- Green = 2
+
+So the previous "GYBYG" string would be:
+$$
+(2\cdot3^4) + (1\cdot3^3) + (0\cdot3^2) + (1\cdot3^1) + (2\cdot3^0) = 194
+$$
+With 243 possible combinations, this can be stored in an 8 bit integer.
+```
+uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solution) const {
+    uint8_t feedback = 0;
+    int freq[26] = {0};
+
+    // Step 1: Count letters in solution
+    for (int i = 0; i < 5; ++i)
+        freq[solution[i] - 'a']++;
+
+    // Step 2: Mark greens (and adjust freq)
+    uint8_t codes[5];
+    for (int i = 0; i < 5; ++i) {
+        if (guess[i] == solution[i]) {
+            codes[i] = 2;
+            freq[guess[i] - 'a']--;
+        } else {
+            codes[i] = 0;
+        }
+    }
+
+    // Step 3: Mark yellows
+    for (int i = 0; i < 5; ++i) {
+        if (codes[i] == 0) {
+            int idx = guess[i] - 'a';
+            if (freq[idx] > 0) {
+                codes[i] = 1;
+                freq[idx]--;
+            }
+        }
+    }
+
+    // Step 4: Encode to base-3 number
+    for (int i = 0; i < 5; ++i)
+        feedback = feedback * 3 + codes[i];
+
+    return feedback;
+}
+```
+
+While this is a more efficient way of storing the feedback data,
+the feedback determination of a guess and answer combination can
+be made even faster by caching a table of all guess and answer
+combinations once, and caching their respective feedback.
+```
+void Feedback::precache_feedback(const std::vector<std::string> &all_solutions) {
+    size_t n_words = all_solutions.size();
+
+    // Build word_index for fast lookup
+    word_index.clear();
+    for (size_t i = 0; i < n_words; ++i)
+        word_index[all_solutions[i]] = i;
+
+    feedback_cache.assign(n_words, std::vector<uint8_t>(n_words, 0));
+    std::atomic<size_t> progress(0);
+
+    size_t n_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+
+    std::atomic<bool> done(false);
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    // Progress Bar Thread
+    std::thread progress_thread([&] {
+        while (!done) {
+            {
+                std::lock_guard<std::mutex> lock(display.getMutex());
+                display.showProgress("Caching Feedback", progress.load(), n_words);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    });
+
+    // Worker Threads
+    auto worker = [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            for (size_t j = 0; j < n_words; ++j)
+                feedback_cache[i][j] = get_feedback(all_solutions[i], all_solutions[j]);
+            progress.fetch_add(1, std::memory_order_relaxed);
+        }
+    };
+
+    // Split Work into Chunks
+    size_t chunk_size = (n_words + n_threads - 1) / n_threads;
+    for (size_t i = 0; i < n_threads; ++i) {
+        size_t start = i * chunk_size;
+        size_t end = std::min((start + chunk_size), n_words);
+        threads.emplace_back(worker, start, end);
+    }
+
+    for (auto &t : threads) t.join();
+    done = true;
+    progress_thread.join();
+
+    std::lock_guard<std::mutex> lock(display.getMutex());
+    display.showProgress("Caching Feedback", n_words, n_words);
+}
+```
+
+### Determining Entropy
+To determine the entropy we include this as part of the calculation:
+$$
+\log_2 P(p)
+$$
+This will be a pretty computationally expensive instruction, so to
+speed it up, the $log_2$ values can be cached
+```
+std::vector<double> Entropy::log_cache;
+
+void Entropy::precache_log(size_t max_size,
+                    Display& display) {
+    log_cache.resize(max_size + 1);
+
+    for (size_t i = 1; i <= max_size; ++i) {
+        double p = static_cast<double>(i) / max_size;
+        log_cache[i] = std::log2(p);
+
+        if (i % 100 == 0 || i == max_size) {
+            display.showProgress("Caching log2", i, max_size);
+        }
+    }
+}
+```
+
+### First Best Guess
+Before we make a guess, we start with no information on the answer.
+Therefore the first best guess determined should always be the same. <br>
+Using a 2 Step Entropy value, the word with the best expected entropy
+is "Slate". The lengthy first guess determination can be skipped and
+instead always produce "Slate" as the best guess.
+```
+std::pair<std::string, double> Entropy::get_best_guess(
+    const std::vector<std::string> &guesses,
+    const std::vector<std::string> &solutions,
+    int k,
+    Display &display
+) const {
+    if (std::find(guesses.begin(), guesses.end(), "slate") != guesses.end()) {
+        return {"slate", 0.0};
+    }
+
+    display.showProgress("Calculating Best Guess", 0, guesses.size());
+    std::atomic<size_t> progress(0);
+    bool done = false;
+
+    // Progress thread
+    std::thread progress_thread([&]() {
+        while (!done) {
+            display.showProgress("Calculating Best Guess", progress.load(), guesses.size());
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        display.showProgress("Calculating Best Guess", guesses.size(), guesses.size());
+    });
+
+    auto entropies = get_n_step_entropy(guesses, solutions, k, progress, true);
+
+    done = true;
+    progress_thread.join();
+
+    auto max_it = std::max_element(
+        entropies.begin(),
+        entropies.end(),
+        [](const auto &a, const auto &b) { return a.second < b.second; }
+    );
+
+    return *max_it;
+}
+```
+
+## PyTorch
+
+
+## Benchmarking
