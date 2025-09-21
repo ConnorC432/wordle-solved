@@ -50,6 +50,7 @@ uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solu
     return feedback;
 }
 
+// TODO: Separate feedback cache table by Base 3 Feedback int, optimise get cache function
 uint8_t Feedback::get_feedback_cached(const std::string &guess, const std::string &solution) const {
     auto it_guess = word_index.find(guess);
     if (it_guess == word_index.end()) return 0;
