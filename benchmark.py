@@ -5,10 +5,12 @@ import time
 import catppuccin
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 
 env = os.environ.copy()
 valid_answers = "answers.txt"
 program = os.path.abspath("./cmake-build-release-docker/bin/wordle_solved")
+sample_size = 100
 
 programs = {
     "C++ 1 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "1"],
@@ -16,12 +18,12 @@ programs = {
     "C++ 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "2"],
     "C++ Fast 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sfk", "2"],
     "Python 1 Step": lambda word: ["./.venv/bin/python", "wordle.py", "-k", "1", "-a", word],
-    "Python 2 Step": lambda word: ["./.venv/bin/python", "wordle.py", "-k", "2", "-a", word],
     "PyTorch": lambda word: ["./.venv/bin/python", "model.py", "-l", "model", "-a", word],
 }
 
 with open(valid_answers, "r") as f:
-    words = [line.strip() for line in f if line.strip()]
+    all_words = [line.strip() for line in f if line.strip()]
+    words = random.sample(all_words, sample_size)
 
 results = {label: {} for label in programs}
 
@@ -100,12 +102,12 @@ plt.savefig("benchmark/average-guesses.png", dpi=300)
 
 # Average Time
 fig, ax = plt.subplots(constrained_layout=True)
-bars = ax.bar(x, avg_times, width, color='orange')
+bars = ax.bar(x, avg_time, width, color='orange')
 ax.set_ylabel("Average Calculation Time (s)")
 ax.set_title("Average Calculation Time per Program")
 ax.set_xticks(x)
 ax.set_xticklabels(labels, rotation=45, ha='right')
-ax.set_ylim(0, max(avg_times) * 1.10)
+ax.set_ylim(0, max(avg_time) * 1.10)
 
 for bar in bars:
     yval = bar.get_height()
