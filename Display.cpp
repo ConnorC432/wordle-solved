@@ -121,7 +121,7 @@ void Display::clearDisplay() {
 
 #ifdef _WIN32
     std::system("cls");
-#else
+#elif __linux__
     std::system("clear");
 #endif
 }
