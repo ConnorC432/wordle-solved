@@ -4,6 +4,7 @@
 
 #include "Entropy.h"
 #include "ThreadPool.h"
+#include "LogTable.h"
 #include <algorithm>
 #include <array>
 #include <future>
@@ -15,23 +16,6 @@
 #include <iostream>
 
 Entropy::Entropy(const Feedback &fbCache) : cache(fbCache) {}
-
-// Logarithm Cache
-std::vector<double> Entropy::log_cache;
-
-void Entropy::precache_log(size_t max_size,
-                    Display& display) {
-    log_cache.resize(max_size + 1);
-
-    for (size_t i = 1; i <= max_size; ++i) {
-        double p = static_cast<double>(i) / max_size;
-        log_cache[i] = std::log2(p);
-
-        if (i % 100 == 0 || i == max_size) {
-            display.showProgress("Caching log2", i, max_size);
-        }
-    }
-}
 
 // Feedback Count
 std::array<size_t, 243> Entropy::get_feedback_count(
@@ -69,10 +53,11 @@ std::vector<std::pair<std::string, double>> Entropy::get_entropy(
         }
 
         double entropy = 0.0;
+        double log2_total = std::log2(total);
         for (size_t count : counts) {
             if (count == 0) continue;
             double p = static_cast<double>(count) / total;
-            double logp = (count < log_cache.size()) ? log_cache[count] - std::log2(total) : std::log2(p);
+            double logp = (count < 16001) ? LOG2_TABLE[count] - log2_total : std::log2(p);
             entropy -= p * logp;
         }
 
@@ -159,10 +144,11 @@ std::vector<std::pair<std::string, double>> Entropy::get_n_step_entropy(
 
         // 2. Single-step entropy
         double H_current = 0.0;
+        double log2_total = std::log2(total);
         for (size_t count : counts) {
             if (count == 0) continue;
             double p = static_cast<double>(count) / total;
-            double logp = (count < log_cache.size()) ? log_cache[count] - std::log2(total) : std::log2(p);
+            double logp = (count < 16001) ? LOG2_TABLE[count] - log2_total : std::log2(p);
             H_current -= p * logp;
         }
 

@@ -102,7 +102,6 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> answers = get_valid_solutions();
 
     feedback.precache_feedback(guesses);
-    Entropy::precache_log(guesses.size(), display);
 
     if (!opts.answer.empty()) {
         std::string answer = opts.answer;
