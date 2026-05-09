@@ -3,14 +3,16 @@
 //
 
 #include "Feedback.h"
+#include "words.h"
+#include "FeedbackTable.h"
 #include <atomic>
 #include <thread>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
 
-std::vector<std::vector<uint8_t>> Feedback::feedback_cache;
-std::unordered_map<std::string, size_t> Feedback::word_index;
+std::unordered_map<std::string, size_t> Feedback::all_word_index;
+std::unordered_map<std::string, size_t> Feedback::valid_word_index;
 
 // Encode Feedback to Base 3
 uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solution) const {
@@ -52,69 +54,27 @@ uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solu
 
 // TODO: Separate feedback cache table by Base 3 Feedback int, optimise get cache function
 uint8_t Feedback::get_feedback_cached(const std::string &guess, const std::string &solution) const {
-    auto it_guess = word_index.find(guess);
-    if (it_guess == word_index.end()) return 0;
+    auto it_guess = all_word_index.find(guess);
+    if (it_guess == all_word_index.end()) return 0;
     size_t idx = it_guess->second;
 
-    auto it_sol = word_index.find(solution);
-    if (it_sol == word_index.end()) return 0;
+    auto it_sol = valid_word_index.find(solution);
+    if (it_sol == valid_word_index.end()) return 0;
     size_t sol_idx = it_sol->second;
 
-    return feedback_cache[idx][sol_idx];
+    return FEEDBACK_TABLE[idx * VALID_WORD_COUNT + sol_idx];
 }
 
 // Cache Feedback with Thread Pool
-void Feedback::precache_feedback(const std::vector<std::string> &all_solutions) {
-    size_t n_words = all_solutions.size();
-
-    // Build word_index for fast lookup
-    word_index.clear();
-    for (size_t i = 0; i < n_words; ++i)
-        word_index[all_solutions[i]] = i;
-
-    feedback_cache.assign(n_words, std::vector<uint8_t>(n_words, 0));
-    std::atomic<size_t> progress(0);
-
-    size_t n_threads = std::thread::hardware_concurrency();
-    std::vector<std::thread> threads;
-
-    std::atomic<bool> done(false);
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    // Progress Bar Thread
-    std::thread progress_thread([&] {
-        while (!done) {
-            {
-                std::lock_guard<std::mutex> lock(display.getMutex());
-                display.showProgress("Caching Feedback", progress.load(), n_words);
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-    });
-
-    // Worker Threads
-    auto worker = [&](size_t start, size_t end) {
-        for (size_t i = start; i < end; ++i) {
-            for (size_t j = 0; j < n_words; ++j)
-                feedback_cache[i][j] = get_feedback(all_solutions[i], all_solutions[j]);
-            progress.fetch_add(1, std::memory_order_relaxed);
-        }
-    };
-
-    // Split Work into Chunks
-    size_t chunk_size = (n_words + n_threads - 1) / n_threads;
-    for (size_t i = 0; i < n_threads; ++i) {
-        size_t start = i * chunk_size;
-        size_t end = std::min((start + chunk_size), n_words);
-        threads.emplace_back(worker, start, end);
+void Feedback::precache_indices() {
+    if (all_word_index.empty()) {
+        for (size_t i = 0; i < ALL_WORD_COUNT; ++i)
+            all_word_index[ALL_WORDS[i]] = i;
     }
-
-    for (auto &t : threads) t.join();
-    done = true;
-    progress_thread.join();
-
-    std::lock_guard<std::mutex> lock(display.getMutex());
-    display.showProgress("Caching Feedback", n_words, n_words);
+    if (valid_word_index.empty()) {
+        for (size_t i = 0; i < VALID_WORD_COUNT; ++i)
+            valid_word_index[VALID_WORDS[i]] = i;
+    }
 }
 
 // Update Solutions

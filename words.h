@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-const char* ALL_WORDS[] = {
+static const char* ALL_WORDS[] = {
     "aahed",
     "aalii",
     "aapas",
@@ -14862,7 +14862,7 @@ const char* ALL_WORDS[] = {
     "zymic"
 };
 
-const char* VALID_WORDS[] = {
+static const char* VALID_WORDS[] = {
     "aback",
     "abase",
     "abate",

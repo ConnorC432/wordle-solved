@@ -13,8 +13,8 @@
 
 class Feedback {
 private:
-    static std::vector<std::vector<uint8_t>> feedback_cache;
-    static std::unordered_map<std::string, size_t> word_index;
+    static std::unordered_map<std::string, size_t> all_word_index;
+    static std::unordered_map<std::string, size_t> valid_word_index;
     Display &display;
 
 public:
@@ -27,9 +27,7 @@ public:
     uint8_t get_feedback_cached(const std::string &guess, const std::string &solution) const;
 
     // Cache Feedback with Thread Pool
-    void precache_feedback(const std::vector<std::string> &all_solutions);
-
-    const std::vector<std::vector<uint8_t>> &get_cache() const {return feedback_cache;};
+    void precache_indices();
 
     // Update Solutions
     std::vector<std::string> get_new_solutions(

@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> answers = get_valid_solutions();
 
-    feedback.precache_feedback(guesses);
+    feedback.precache_indices();
 
     if (!opts.answer.empty()) {
         std::string answer = opts.answer;
