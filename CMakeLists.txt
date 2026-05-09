@@ -11,7 +11,7 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     # Release flags: highest optimization, LTO, static standard library
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -march=x86-64 -mtune=generic -fno-exceptions -fno-rtti -DNDEBUG -static-libstdc++ -static-libgcc")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -ffast-math -march=x86-64 -mtune=generic -fno-exceptions -fno-rtti -DNDEBUG -static-libstdc++ -static-libgcc")
 
     # Debug flags: optimization + debug symbols
     set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -Wextra -pedantic -fno-omit-frame-pointer")
