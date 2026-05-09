@@ -13,10 +13,10 @@ program = os.path.abspath("./cmake-build-release-docker/bin/wordle_solved")
 sample_size = 100
 
 programs = {
-    "C++ 1 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "1"],
-    "C++ Fast 1 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sfk", "1"],
-    "C++ 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sk", "2"],
-    "C++ Fast 2 Step": lambda word: ["./cmake-build-release-docker/bin/wordle_solved", word, "-sfk", "2"],
+    "C++ 1 Step": lambda word: ["./build/bin/wordle_solved", word, "-sk", "1"],
+    "C++ Fast 1 Step": lambda word: ["./build/bin/wordle_solved", word, "-sfk", "1"],
+    "C++ 2 Step": lambda word: ["./build/bin/wordle_solved", word, "-sk", "2"],
+    "C++ Fast 2 Step": lambda word: ["./build/bin/wordle_solved", word, "-sfk", "2"],
     "Python 1 Step": lambda word: ["./.venv/bin/python", "wordle.py", "-k", "1", "-a", word],
     "PyTorch": lambda word: ["./.venv/bin/python", "model.py", "-l", "model", "-a", word],
 }
