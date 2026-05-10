@@ -1,0 +1,25 @@
+FROM archlinux:latest
+LABEL authors="connor"
+
+# Update system and install base development tools
+RUN pacman -Syu --noconfirm \
+    && pacman -S --noconfirm \
+        base-devel \
+        gcc \
+        clang \
+        gdb \
+        make \
+        ninja \
+        cmake \
+        autoconf \
+        automake \
+        libtool \
+        valgrind \
+        rsync \
+        tar \
+        dos2unix \
+        python \
+        perf \
+    && pacman -Scc --noconfirm
+
+WORKDIR /app
