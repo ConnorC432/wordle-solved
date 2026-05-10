@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <string>
 #include "Display.h"
+#include "words.h"
+#include "FeedbackTable.h"
 
 
 class Feedback {
