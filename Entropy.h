@@ -17,35 +17,19 @@ class Entropy {
 private:
     const Feedback &cache;
 
-    // Feedback Count
-    std::array<size_t, 243> get_feedback_count(
-        const std::string &guess,
-        const std::vector<std::string> &solutions,
-        const std::vector<size_t> &indices
-    ) const;
-
     // Single-step Entropies
-    std::vector<std::pair<std::string, double>> get_entropy(
-        const std::vector<std::string> &guesses,
-        const std::vector<std::string> &solutions,
-        const std::vector<size_t> &indices
+    std::vector<double> get_entropy(
+        const std::vector<size_t> &guesses,
+        const std::vector<size_t> &solutions
     ) const;
-
-    // Get Next Step Entropies
-    std::vector<std::pair<std::string, double>> get_next_entropy(
-        const std::vector<std::pair<std::string, double>> &entropies,
-        const std::vector<std::string> &guesses,
-        const std::vector<std::string> &solutions
-    ) const;
-
 
 public:
     Entropy(const Feedback &fbCache);
 
     // N-step entropy
-    std::vector<std::pair<std::string, double>> get_n_step_entropy(
-        const std::vector<std::string> &solutions,
-        const std::vector<std::string> &all_solutions,
+    std::vector<std::pair<size_t, double>> get_n_step_entropy(
+        const std::vector<size_t> &guesses,
+        const std::vector<size_t> &solutions,
         int k,
         std::atomic<size_t> &progress,
         bool top_level

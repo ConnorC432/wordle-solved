@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
-std::unordered_map<std::string, size_t> Feedback::all_word_index;
-std::unordered_map<std::string, size_t> Feedback::valid_word_index;
+#include <algorithm>
+
 
 // Encode Feedback to Base 3
 uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solution) const {
@@ -52,42 +52,38 @@ uint8_t Feedback::get_feedback(const std::string &guess, const std::string &solu
     return feedback;
 }
 
-// TODO: Separate feedback cache table by Base 3 Feedback int, optimise get cache function
-uint8_t Feedback::get_feedback_cached(const std::string &guess, const std::string &solution) const {
-    auto it_guess = all_word_index.find(guess);
-    if (it_guess == all_word_index.end()) return 0;
-    size_t idx = it_guess->second;
+int Feedback::get_all_word_index(const std::string &word) {
+    auto it = std::lower_bound(ALL_WORDS, ALL_WORDS + ALL_WORD_COUNT, word);
+    if (it != ALL_WORDS + ALL_WORD_COUNT && *it == word) {
+        return std::distance(ALL_WORDS, it);
+    }
+    return -1;
+}
 
-    auto it_sol = valid_word_index.find(solution);
-    if (it_sol == valid_word_index.end()) return 0;
-    size_t sol_idx = it_sol->second;
-
-    return FEEDBACK_TABLE[idx * VALID_WORD_COUNT + sol_idx];
+int Feedback::get_valid_word_index(const std::string &word) {
+    auto it = std::lower_bound(VALID_WORDS, VALID_WORDS + VALID_WORD_COUNT, word);
+    if (it != VALID_WORDS + VALID_WORD_COUNT && *it == word) {
+        return std::distance(VALID_WORDS, it);
+    }
+    return -1;
 }
 
 // Cache Feedback with Thread Pool
 void Feedback::precache_indices() {
-    if (all_word_index.empty()) {
-        for (size_t i = 0; i < ALL_WORD_COUNT; ++i)
-            all_word_index[ALL_WORDS[i]] = i;
-    }
-    if (valid_word_index.empty()) {
-        for (size_t i = 0; i < VALID_WORD_COUNT; ++i)
-            valid_word_index[VALID_WORDS[i]] = i;
-    }
 }
 
 // Update Solutions
-std::vector<std::string> Feedback::get_new_solutions(
-    const std::vector<std::string> &solutions,
-    const std::string &guess,
+std::vector<size_t> Feedback::get_new_solutions(
+    const std::vector<size_t> &solutions,
+    size_t guess_idx,
     uint8_t feedback
 ) const {
-    std::vector<std::string> new_solutions;
+    std::vector<size_t> new_solutions;
+    new_solutions.reserve(solutions.size() / 3);
 
-    for (const auto &sol : solutions) {
-        if (get_feedback(guess, sol) == feedback)  // compute directly
-            new_solutions.push_back(sol);
+    for (size_t sol_idx : solutions) {
+        if (get_feedback_cached(guess_idx, sol_idx) == feedback)
+            new_solutions.push_back(sol_idx);
     }
 
     return new_solutions;

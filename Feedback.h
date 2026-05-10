@@ -13,8 +13,6 @@
 
 class Feedback {
 private:
-    static std::unordered_map<std::string, size_t> all_word_index;
-    static std::unordered_map<std::string, size_t> valid_word_index;
     Display &display;
 
 public:
@@ -24,15 +22,18 @@ public:
     uint8_t get_feedback(const std::string &guess, const std::string &solution) const;
 
     // Cached Feedback
-    uint8_t get_feedback_cached(const std::string &guess, const std::string &solution) const;
+    inline uint8_t get_feedback_cached(size_t guess_idx, size_t sol_idx) const {
+        return FEEDBACK_TABLE[guess_idx * VALID_WORD_COUNT + sol_idx];
+    }
 
-    // Cache Feedback with Thread Pool
-    void precache_indices();
+    // Get index of word
+    static int get_all_word_index(const std::string &word);
+    static int get_valid_word_index(const std::string &word);
 
     // Update Solutions
-    std::vector<std::string> get_new_solutions(
-        const std::vector<std::string> &solutions,
-        const std::string &guess,
+    std::vector<size_t> get_new_solutions(
+        const std::vector<size_t> &solutions,
+        size_t guess_idx,
         uint8_t feedback
     ) const;
 };

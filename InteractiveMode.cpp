@@ -3,6 +3,7 @@
 //
 
 #include "InteractiveMode.h"
+#include "words.h"
 #include <algorithm>
 #include <vector>
 #include <string>
@@ -64,12 +65,22 @@ void InteractiveMode::run(std::vector<std::string>  guesses,
                 fb_encoded = fb_encoded * 3 + code;
             }
 
-            auto new_solutions = feedback.get_new_solutions(solutions, best_guess, fb_encoded);
+            std::vector<size_t> sol_indices;
+            sol_indices.reserve(solutions.size());
+            for (const auto &s : solutions) {
+                int idx = Feedback::get_valid_word_index(s);
+                if (idx != -1) sol_indices.push_back(idx);
+            }
 
-            if (new_solutions.empty()) {
+            auto new_sol_indices = feedback.get_new_solutions(sol_indices, Feedback::get_all_word_index(best_guess), fb_encoded);
+
+            if (new_sol_indices.empty()) {
                 std::cout << "Invalid Feedback! Please enter correct feedback. \n";
             } else {
-                solutions = new_solutions;
+                solutions.clear();
+                for (size_t idx : new_sol_indices) {
+                    solutions.push_back(VALID_WORDS[idx]);
+                }
                 guessFeedback.push_back({best_guess, fb_encoded});
                 guess_count++;
                 break;
