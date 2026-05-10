@@ -6,16 +6,19 @@
 #define WORDLE_SOLVED_ENTROPY_H
 #pragma once
 #include "Feedback.h"
+#include "ThreadPool.h"
 #include <array>
 #include <atomic>
 #include <vector>
 #include <string>
 #include <utility>
+#include <memory>
 
 
 class Entropy {
 private:
     const Feedback &cache;
+    mutable std::unique_ptr<ThreadPool> pool;
 
     // Single-step Entropies
     std::vector<double> get_entropy(

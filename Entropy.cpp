@@ -62,7 +62,7 @@ std::vector<std::pair<size_t, double>> Entropy::get_n_step_entropy(
     std::vector<std::pair<size_t, double>> results(guesses.size());
     if (solutions.empty()) return results;
 
-    auto compute_for_guess = [&](size_t i) {
+    auto compute_for_guess = [&](size_t i, std::array<std::vector<size_t>, 243> &subsets) {
         size_t guess_idx = guesses[i];
         size_t total = solutions.size();
 
@@ -85,16 +85,15 @@ std::vector<std::pair<size_t, double>> Entropy::get_n_step_entropy(
         // 2. Weighted max entropy for next step
         double H_next = 0.0;
         if (k > 1 && total > 1) {
-            for (size_t fb = 0; fb < 243; ++fb) {
-                size_t count = counts[fb];
-                if (count == 0) continue;
+            for (auto &v : subsets) v.clear();
+            for (size_t sol_idx : solutions) {
+                subsets[cache.get_feedback_cached(guess_idx, sol_idx)].push_back(sol_idx);
+            }
 
-                std::vector<size_t> subset;
-                subset.reserve(count);
-                for (size_t sol_idx : solutions) {
-                    if (cache.get_feedback_cached(guess_idx, sol_idx) == fb)
-                        subset.push_back(sol_idx);
-                }
+            for (size_t fb = 0; fb < 243; ++fb) {
+                const auto &subset = subsets[fb];
+                size_t count = subset.size();
+                if (count == 0) continue;
 
                 double max_branch_entropy = 0.0;
                 if (count > 1) {
@@ -118,15 +117,31 @@ std::vector<std::pair<size_t, double>> Entropy::get_n_step_entropy(
     };
 
     if (top_level) {
-        ThreadPool pool(std::thread::hardware_concurrency());
+        if (!pool) {
+            pool = std::make_unique<ThreadPool>(std::thread::hardware_concurrency());
+        }
+        size_t num_threads = std::thread::hardware_concurrency();
+        size_t batch_size = (guesses.size() + num_threads - 1) / num_threads;
         std::vector<std::future<void>> futures;
-        futures.reserve(guesses.size());
-        for (size_t i = 0; i < guesses.size(); ++i)
-            futures.push_back(pool.enqueue([&, i]() { compute_for_guess(i); }));
+        futures.reserve(num_threads);
+
+        for (size_t t = 0; t < num_threads; ++t) {
+            size_t start = t * batch_size;
+            size_t end = std::min(start + batch_size, guesses.size());
+            if (start >= end) break;
+
+            futures.push_back(pool->enqueue([&, start, end]() {
+                std::array<std::vector<size_t>, 243> local_subsets;
+                for (size_t i = start; i < end; ++i) {
+                    compute_for_guess(i, local_subsets);
+                }
+            }));
+        }
         for (auto &f : futures) f.get();
     } else {
+        std::array<std::vector<size_t>, 243> local_subsets;
         for (size_t i = 0; i < guesses.size(); ++i)
-            compute_for_guess(i);
+            compute_for_guess(i, local_subsets);
     }
 
     return results;
