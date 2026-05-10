@@ -68,10 +68,6 @@ int Feedback::get_valid_word_index(const std::string &word) {
     return -1;
 }
 
-// Cache Feedback with Thread Pool
-void Feedback::precache_indices() {
-}
-
 // Update Solutions
 std::vector<size_t> Feedback::get_new_solutions(
     const std::vector<size_t> &solutions,
