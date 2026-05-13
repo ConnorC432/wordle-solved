@@ -435,6 +435,17 @@ std::pair<std::string, double> Entropy::get_best_guess(
 }
 ```
 
+### Improving the feedback and log2 caches
+The caching of feedback and log2 values, while still faster than doing the calculation each 
+time, can be quite lengthy when done once at runtime. Since the cache values will always be the 
+same, they can be pre-determined and stored as part of the program, preventing the need to recalculate them each time at runtime.
+<br>
+The pre-calculated tables can be found here:
+<br>
+[FeedbackTable.h](FeedbackTable.h)
+<br>
+[LogTable.h](LogTable.h)
+
 ## PyTorch
 
 
